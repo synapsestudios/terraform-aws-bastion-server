@@ -1,13 +1,13 @@
 # AWS Bastion Server
 
-This module creates an AWS EC2 Instance to be used as a bastion server.
+This module creates an AWS EC2 Instance with a given AMI to be used as a bastion server. Multiple inputs are available to allow access to existing security groups as well as restricting SSH access by network CIDR.
 
 <!-- BEGINNING OF PRE-COMMIT-TERRAFORM DOCS HOOK -->
 ## Requirements
 
 | Name | Version |
 |------|---------|
-| terraform | ~> 0.12.6 |
+| terraform | ~> 0.12.29 |
 | aws | ~> 2.53 |
 
 ## Providers
