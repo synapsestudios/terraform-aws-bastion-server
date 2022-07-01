@@ -75,7 +75,7 @@ resource "aws_security_group" "this" {
 }
 
 resource "aws_iam_role" "this" {
-  name = "Bastion-${var.namespace}"
+  name = "${var.namespace}Role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
