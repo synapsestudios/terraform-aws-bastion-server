@@ -1,57 +1,56 @@
-#################
-# Bastion SSH Key
-#################
-resource "aws_key_pair" "this" {
-  key_name   = "${var.hostname}.${var.dns_zone}"
-  public_key = var.public_ssh_key
+data "aws_ami" "amazon-linux-2" {
+  owners      = ["amazon"]
+  most_recent = true
+
+  filter {
+    name   = "name"
+    values = ["amzn2-ami-hvm-*-x86_64-ebs"]
+  }
 }
 
-########################
-# EC2 - Bastion Instance
-########################
+resource "tls_private_key" "key" {
+  algorithm = "RSA"
+  rsa_bits  = 4096
+}
+
+resource "aws_key_pair" "this" {
+  key_name_prefix = var.namespace
+  public_key      = tls_private_key.key.public_key_openssh
+}
+
+resource "aws_secretsmanager_secret" "this" {
+  name_prefix = var.namespace
+  description = "bastion private key"
+  tags        = var.tags
+}
+
+resource "aws_secretsmanager_secret_version" "this" {
+  secret_id     = aws_secretsmanager_secret.this.id
+  secret_string = tls_private_key.key.private_key_pem
+}
+
 resource "aws_instance" "this" {
-  ami                         = var.ami
+  ami                         = data.aws_ami.amazon-linux-2.id
   associate_public_ip_address = true
-  iam_instance_profile        = var.iam_instance_profile
+  iam_instance_profile        = aws_iam_instance_profile.this.name
   instance_type               = var.instance_type
   key_name                    = aws_key_pair.this.key_name
   subnet_id                   = var.subnet_id
-  tags                        = merge(var.tags, { Name = "${var.hostname}.${var.dns_zone}" })
+  tags                        = var.tags
   vpc_security_group_ids      = [aws_security_group.this.id]
 
   root_block_device {
-    encrypted   = var.encrypted
+    encrypted   = true
     volume_type = var.volume_type
     volume_size = var.volume_size
   }
 }
 
-##################
-# Route53 DNS Zone
-##################
-data "aws_route53_zone" "this" {
-  count = var.use_external_dns == false ? 1 : 0
-
-  name         = var.dns_zone
-  private_zone = false
+resource "aws_eip" "lb" {
+  instance = aws_instance.this.id
+  vpc      = true
 }
 
-##############################
-# Route53 A Record for Bastion
-##############################
-resource "aws_route53_record" "this" {
-  count = var.use_external_dns == false ? 1 : 0
-
-  zone_id = data.aws_route53_zone.this[0].zone_id
-  name    = var.hostname
-  type    = "A"
-  ttl     = "300"
-  records = [aws_instance.this.public_ip]
-}
-
-##############################
-# Security Group - EC2 Bastion
-##############################
 resource "aws_security_group" "this" {
   description = "Bastion"
   vpc_id      = var.vpc_id
@@ -62,7 +61,7 @@ resource "aws_security_group" "this" {
     from_port   = 22
     to_port     = 22
     protocol    = 6
-    cidr_blocks = var.allow_cidr
+    cidr_blocks = ["0.0.0.0/0"]
     description = "Allow incoming SSH connections."
   }
 
@@ -75,47 +74,27 @@ resource "aws_security_group" "this" {
   }
 }
 
-#####################################################
-# Security Group Rule - Allow Bastion Database Access
-#####################################################
-resource "aws_security_group_rule" "database_acccess" {
-  count = var.database_security_group == null ? 0 : length(var.database_ports)
+resource "aws_iam_role" "this" {
+  name = "Bastion-${var.namespace}"
 
-  type                     = "ingress"
-  from_port                = var.database_ports[count.index].port
-  to_port                  = var.database_ports[count.index].port
-  protocol                 = 6
-  source_security_group_id = aws_security_group.this.id
-  description              = var.database_ports[count.index].description
-  security_group_id        = var.database_security_group
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Sid    = ""
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      },
+    ]
+  })
+
+  tags = var.tags
 }
 
-##################################################
-# Security Group Rule - Allow Bastion Redis Access
-##################################################
-resource "aws_security_group_rule" "redis_access" {
-  count = var.redis_security_group == null ? 0 : 1
-
-  type                     = "ingress"
-  from_port                = var.redis_port
-  to_port                  = var.redis_port
-  protocol                 = 6
-  source_security_group_id = aws_security_group.this.id
-  description              = "Allow incoming connections from Bastion server."
-  security_group_id        = var.redis_security_group
-}
-
-##########################################################
-# Security Group Rule - Allow Bastion ElasticSearch Access
-##########################################################
-resource "aws_security_group_rule" "elasticsearch_access" {
-  count = var.elasticsearch_security_group == null ? 0 : length(var.elasticsearch_ports)
-
-  type                     = "ingress"
-  from_port                = var.elasticsearch_ports[count.index]
-  to_port                  = var.elasticsearch_ports[count.index]
-  protocol                 = 6
-  source_security_group_id = aws_security_group.this.id
-  description              = "Allow incoming connections from Bastion server."
-  security_group_id        = var.elasticsearch_security_group
+resource "aws_iam_instance_profile" "this" {
+  name = aws_iam_role.this.name
+  role = aws_iam_role.this.name
 }
