@@ -34,6 +34,7 @@ jobs:
         uses: hashicorp/setup-terraform@v1
         with:
           terraform_version: 1.2.2
+          terraform_wrapper: false
       # - name: Set up notifications
       #   uses: synapsestudios/build-status@v2
       #   with:
