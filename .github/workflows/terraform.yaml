@@ -21,6 +21,14 @@ jobs:
         id: fmt
         run: terraform fmt -check
 
+      - name: Terraform Fixtures
+        id: init
+        run: terraform init
+
+      - name: Terraform Validate Fixtures
+        id: validate
+        run: terraform validate
+
       - name: Terraform Format Fixtures
         id: fmt-fixtures
         run: terraform fmt -check
