@@ -26,6 +26,11 @@ jobs:
         run: terraform fmt -check
         working-directory: fixtures/terraform-aws-bastion-server
 
+      - name: Terraform Init Fixtures
+        id: init-fixtures
+        run: terraform init
+        working-directory: fixtures/terraform-aws-bastion-server
+
       - name: Terraform Validate Fixtures
         id: validate-fixtures
         run: terraform validate
