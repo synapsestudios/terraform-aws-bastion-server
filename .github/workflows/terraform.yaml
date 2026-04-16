@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  terraform-unit:
-    name: Unit tests (mocked)
+  fast-checks:
+    name: Fast Checks
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
@@ -14,13 +14,17 @@ jobs:
       - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.13.4
+      - name: terraform fmt
+        run: terraform fmt -recursive -check
       - name: terraform init
         run: terraform init -test-directory=tests/unit
-      - name: terraform test
+      - name: terraform validate
+        run: terraform validate
+      - name: terraform test (unit, mocked)
         run: terraform test -test-directory=tests/unit
 
-  terraform-integration:
-    name: Integration tests (real AWS, manual dispatch)
+  slow-checks:
+    name: Slow Checks
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     env:
@@ -34,5 +38,5 @@ jobs:
           terraform_version: 1.13.4
       - name: terraform init
         run: terraform init -test-directory=tests/integration
-      - name: terraform test
+      - name: terraform test (integration, real AWS)
         run: terraform test -test-directory=tests/integration
