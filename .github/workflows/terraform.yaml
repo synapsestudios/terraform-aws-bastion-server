@@ -20,7 +20,7 @@ jobs:
         run: terraform init -test-directory=tests/unit
       - name: terraform validate
         run: terraform validate
-      - name: terraform test (unit, mocked)
+      - name: terraform test
         run: terraform test -test-directory=tests/unit
 
   slow-checks:
@@ -38,5 +38,5 @@ jobs:
           terraform_version: 1.13.4
       - name: terraform init
         run: terraform init -test-directory=tests/integration
-      - name: terraform test (integration, real AWS)
+      - name: terraform test
         run: terraform test -test-directory=tests/integration
