@@ -1,9 +1,3 @@
-variable "hostname" {
-  type        = string
-  description = "Hostname of the bastion server."
-  default     = "bastion"
-}
-
 variable "volume_size" {
   type        = number
   description = "(Optional) The size of the volume in gibibytes (Default 15 GiB)."
@@ -31,16 +25,15 @@ variable "namespace" {
   description = "Determines naming convention of assets. Generally follows DNS naming convention."
 }
 
+variable "environment" {
+  type        = string
+  description = "Deployment environment tag value (e.g. dev, uat, prod, shared). Applied to every resource created by this module."
+}
+
 variable "instance_type" {
   type        = string
   description = "(Optional) EC2 Instance type to provision."
   default     = "t3.micro"
-}
-
-variable "iam_instance_profile" {
-  type        = string
-  description = "(Optional) The IAM Instance Profile to use with bastion server."
-  default     = null
 }
 
 variable "tags" {

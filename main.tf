@@ -8,6 +8,15 @@ data "aws_ami" "amazon-linux-2" {
   }
 }
 
+locals {
+  default_tags = {
+    Environment   = var.environment
+    ProvisionedBy = "terraform"
+    Module        = "terraform-aws-bastion-server"
+    ModuleVersion = "local"
+  }
+}
+
 resource "tls_private_key" "key" {
   algorithm = "RSA"
   rsa_bits  = 4096
@@ -21,7 +30,7 @@ resource "aws_key_pair" "this" {
 resource "aws_secretsmanager_secret" "this" {
   name_prefix = var.namespace
   description = "bastion private key"
-  tags        = var.tags
+  tags        = merge(local.default_tags, var.tags)
 }
 
 resource "aws_secretsmanager_secret_version" "this" {
@@ -36,7 +45,7 @@ resource "aws_instance" "this" {
   instance_type               = var.instance_type
   key_name                    = aws_key_pair.this.key_name
   subnet_id                   = var.subnet_id
-  tags                        = var.tags
+  tags                        = merge(local.default_tags, var.tags)
   vpc_security_group_ids      = [aws_security_group.this.id]
 
   root_block_device {
@@ -48,14 +57,14 @@ resource "aws_instance" "this" {
 
 resource "aws_eip" "lb" {
   instance = aws_instance.this.id
-  vpc      = true
+  domain   = "vpc"
 }
 
 resource "aws_security_group" "this" {
   description = "Bastion"
   vpc_id      = var.vpc_id
   name        = "bastion-${var.namespace}"
-  tags        = merge(var.tags, { Name = "Bastion" })
+  tags        = merge(local.default_tags, var.tags, { Name = "Bastion" })
 
   ingress {
     from_port   = 22
@@ -91,7 +100,7 @@ resource "aws_iam_role" "this" {
     ]
   })
 
-  tags = var.tags
+  tags = merge(local.default_tags, var.tags)
 }
 
 resource "aws_iam_instance_profile" "this" {
