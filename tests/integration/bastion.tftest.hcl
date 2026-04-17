@@ -2,6 +2,10 @@ variables {
   namespace   = "bastion-integ"
   environment = "test"
   tags        = { ApplicationName = "bastion-integration" }
+  # Integration harness runs from CI with an unknown egress IP, so the SSH
+  # reachability probe needs an open window. This is test-only — production
+  # callers must supply a restricted CIDR list.
+  allowed_cidr_blocks = ["0.0.0.0/0"]
 }
 
 run "setup" {

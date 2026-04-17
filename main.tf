@@ -1,10 +1,16 @@
-data "aws_ami" "amazon-linux-2" {
+data "aws_ami" "amazon_linux_2023" {
+  count       = var.ami_id == null ? 1 : 0
   owners      = ["amazon"]
   most_recent = true
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-ebs"]
+    values = ["al2023-ami-*-x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
   }
 }
 
@@ -15,6 +21,8 @@ locals {
     Module        = "terraform-aws-bastion-server"
     ModuleVersion = "local"
   }
+
+  ami_id = var.ami_id != null ? var.ami_id : data.aws_ami.amazon_linux_2023[0].id
 }
 
 resource "tls_private_key" "key" {
@@ -39,7 +47,7 @@ resource "aws_secretsmanager_secret_version" "this" {
 }
 
 resource "aws_instance" "this" {
-  ami                         = data.aws_ami.amazon-linux-2.id
+  ami                         = local.ami_id
   associate_public_ip_address = true
   iam_instance_profile        = aws_iam_instance_profile.this.name
   instance_type               = var.instance_type
@@ -52,6 +60,13 @@ resource "aws_instance" "this" {
     encrypted   = true
     volume_type = var.volume_type
     volume_size = var.volume_size
+  }
+
+  metadata_options {
+    http_endpoint               = "enabled"
+    http_tokens                 = "required"
+    http_put_response_hop_limit = 1
+    instance_metadata_tags      = "enabled"
   }
 }
 
@@ -70,8 +85,8 @@ resource "aws_security_group" "this" {
     from_port   = 22
     to_port     = 22
     protocol    = 6
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow incoming SSH connections."
+    cidr_blocks = var.allowed_cidr_blocks
+    description = "Allow SSH from authorized CIDRs."
   }
 
   egress {
@@ -101,6 +116,11 @@ resource "aws_iam_role" "this" {
   })
 
   tags = merge(local.default_tags, var.tags)
+}
+
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.this.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "this" {
