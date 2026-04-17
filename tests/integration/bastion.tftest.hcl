@@ -15,8 +15,9 @@ run "setup" {
 
 run "apply_bastion" {
   variables {
-    vpc_id    = run.setup.vpc_id
-    subnet_id = run.setup.public_subnet_id
+    vpc_id              = run.setup.vpc_id
+    subnet_id           = run.setup.public_subnet_id
+    allowed_cidr_blocks = [run.setup.runner_ingress_cidr]
   }
 
   assert {
@@ -32,8 +33,9 @@ run "apply_bastion" {
 
 run "eip_associated" {
   variables {
-    vpc_id    = run.setup.vpc_id
-    subnet_id = run.setup.public_subnet_id
+    vpc_id              = run.setup.vpc_id
+    subnet_id           = run.setup.public_subnet_id
+    allowed_cidr_blocks = [run.setup.runner_ingress_cidr]
   }
 
   assert {
@@ -49,8 +51,9 @@ run "eip_associated" {
 
 run "secret_version_written" {
   variables {
-    vpc_id    = run.setup.vpc_id
-    subnet_id = run.setup.public_subnet_id
+    vpc_id              = run.setup.vpc_id
+    subnet_id           = run.setup.public_subnet_id
+    allowed_cidr_blocks = [run.setup.runner_ingress_cidr]
   }
 
   assert {

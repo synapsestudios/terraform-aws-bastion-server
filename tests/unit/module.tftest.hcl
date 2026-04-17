@@ -1,11 +1,12 @@
 mock_provider "aws" {}
 
 variables {
-  namespace   = "bastion-unit"
-  environment = "test"
-  vpc_id      = "vpc-12345678"
-  subnet_id   = "subnet-12345678"
-  tags        = { ApplicationName = "unit-test" }
+  namespace           = "bastion-unit"
+  environment         = "test"
+  vpc_id              = "vpc-12345678"
+  subnet_id           = "subnet-12345678"
+  tags                = { ApplicationName = "unit-test" }
+  allowed_cidr_blocks = ["203.0.113.0/24"]
 }
 
 run "naming_conventions" {
@@ -79,6 +80,43 @@ run "sg_ingress_ssh_only" {
   }
 }
 
+run "sg_ingress_cidrs_from_variable" {
+  command = plan
+
+  assert {
+    condition     = tolist(tolist(aws_security_group.this.ingress)[0].cidr_blocks) == var.allowed_cidr_blocks
+    error_message = "Ingress cidr_blocks should come from var.allowed_cidr_blocks, not a module default"
+  }
+}
+
+run "imdsv2_required" {
+  command = plan
+
+  assert {
+    condition     = aws_instance.this.metadata_options[0].http_tokens == "required"
+    error_message = "IMDSv2 must be required (http_tokens = required)"
+  }
+
+  assert {
+    condition     = aws_instance.this.metadata_options[0].http_put_response_hop_limit == 1
+    error_message = "Metadata hop limit should be 1"
+  }
+}
+
+run "ssm_policy_attached" {
+  command = plan
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ssm.policy_arn == "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+    error_message = "Bastion IAM role must have AmazonSSMManagedInstanceCore attached for Session Manager fallback"
+  }
+
+  assert {
+    condition     = aws_iam_role_policy_attachment.ssm.role == aws_iam_role.this.name
+    error_message = "SSM policy attachment must target the bastion's IAM role"
+  }
+}
+
 run "instance_profile_wiring" {
   command = plan
 
@@ -104,6 +142,18 @@ run "eip_attached" {
   assert {
     condition     = aws_eip.lb.domain == "vpc"
     error_message = "EIP domain should be vpc"
+  }
+}
+
+run "ami_override_used_when_set" {
+  command = plan
+  variables {
+    ami_id = "ami-0123456789abcdef0"
+  }
+
+  assert {
+    condition     = aws_instance.this.ami == "ami-0123456789abcdef0"
+    error_message = "When ami_id is set, the instance should launch from that AMI rather than the data source"
   }
 }
 
