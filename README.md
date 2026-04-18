@@ -8,7 +8,7 @@ The module is opinionated on security posture: SSH ingress is restricted by call
 
 ```hcl
 module "bastion" {
-  source  = "git::https://github.com/synapsestudios/terraform-aws-bastion-server.git?ref=v4.0.0"
+  source  = "git::https://github.com/synapsestudios/terraform-aws-bastion-server.git?ref=v4.1.0"
 
   namespace   = "prod-myapp"
   environment = "prod"
@@ -29,14 +29,13 @@ module "bastion" {
 # Cross-resource rules (e.g. letting the bastion reach a database SG) are
 # the composing root module's responsibility. Reference `module.bastion.security_group_id`
 # and attach them where both sides of the relationship are visible.
-resource "aws_security_group_rule" "bastion_to_db" {
-  type                     = "ingress"
-  from_port                = 5432
-  to_port                  = 5432
-  protocol                 = "tcp"
-  source_security_group_id = module.bastion.security_group_id
-  security_group_id        = module.aurora.security_group_id
-  description              = "PostgreSQL access from bastion"
+resource "aws_vpc_security_group_ingress_rule" "bastion_to_db" {
+  security_group_id            = module.aurora.security_group_id
+  referenced_security_group_id = module.bastion.security_group_id
+  from_port                    = 5432
+  to_port                      = 5432
+  ip_protocol                  = "tcp"
+  description                  = "PostgreSQL access from bastion"
 }
 ```
 

@@ -80,22 +80,26 @@ resource "aws_security_group" "this" {
   vpc_id      = var.vpc_id
   name        = "bastion-${var.namespace}"
   tags        = merge(local.default_tags, var.tags, { Name = "Bastion" })
+}
 
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = 6
-    cidr_blocks = var.allowed_cidr_blocks
-    description = "Allow SSH from authorized CIDRs."
-  }
+resource "aws_vpc_security_group_ingress_rule" "ssh" {
+  for_each = toset(var.allowed_cidr_blocks)
 
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow outgoing traffic."
-  }
+  security_group_id = aws_security_group.this.id
+  cidr_ipv4         = each.value
+  from_port         = 22
+  to_port           = 22
+  ip_protocol       = "tcp"
+  description       = "Allow SSH from ${each.value}"
+  tags              = merge(local.default_tags, var.tags)
+}
+
+resource "aws_vpc_security_group_egress_rule" "all" {
+  security_group_id = aws_security_group.this.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+  description       = "Allow outgoing traffic."
+  tags              = merge(local.default_tags, var.tags)
 }
 
 resource "aws_iam_role" "this" {
