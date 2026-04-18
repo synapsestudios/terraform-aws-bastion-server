@@ -60,23 +60,23 @@ run "sg_ingress_ssh_only" {
   command = plan
 
   assert {
-    condition     = length(aws_security_group.this.ingress) == 1
-    error_message = "Security group should expose exactly one ingress rule"
+    condition     = length(keys(aws_vpc_security_group_ingress_rule.ssh)) == length(var.allowed_cidr_blocks)
+    error_message = "Should produce one ingress rule per allowed CIDR"
   }
 
   assert {
-    condition     = tolist(aws_security_group.this.ingress)[0].from_port == 22
-    error_message = "Ingress from_port should be 22"
+    condition     = alltrue([for r in values(aws_vpc_security_group_ingress_rule.ssh) : r.from_port == 22])
+    error_message = "All ingress rules should target port 22"
   }
 
   assert {
-    condition     = tolist(aws_security_group.this.ingress)[0].to_port == 22
-    error_message = "Ingress to_port should be 22"
+    condition     = alltrue([for r in values(aws_vpc_security_group_ingress_rule.ssh) : r.to_port == 22])
+    error_message = "All ingress rules should terminate at port 22"
   }
 
   assert {
-    condition     = tolist(aws_security_group.this.ingress)[0].protocol == "6"
-    error_message = "Ingress protocol should be tcp (6)"
+    condition     = alltrue([for r in values(aws_vpc_security_group_ingress_rule.ssh) : r.ip_protocol == "tcp"])
+    error_message = "All ingress rules should use tcp"
   }
 }
 
@@ -84,8 +84,22 @@ run "sg_ingress_cidrs_from_variable" {
   command = plan
 
   assert {
-    condition     = tolist(tolist(aws_security_group.this.ingress)[0].cidr_blocks) == var.allowed_cidr_blocks
-    error_message = "Ingress cidr_blocks should come from var.allowed_cidr_blocks, not a module default"
+    condition     = toset(keys(aws_vpc_security_group_ingress_rule.ssh)) == toset(var.allowed_cidr_blocks)
+    error_message = "Ingress rules must be keyed by var.allowed_cidr_blocks"
+  }
+}
+
+run "sg_egress_allow_all" {
+  command = plan
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.all.cidr_ipv4 == "0.0.0.0/0"
+    error_message = "Egress should permit all IPv4"
+  }
+
+  assert {
+    condition     = aws_vpc_security_group_egress_rule.all.ip_protocol == "-1"
+    error_message = "Egress ip_protocol should be -1 (all)"
   }
 }
 
@@ -198,5 +212,27 @@ run "synapse_standard_tags" {
       aws_secretsmanager_secret.this.tags["ModuleVersion"] == "local",
     ])
     error_message = "Secrets Manager secret must apply Synapse standard tags"
+  }
+
+  assert {
+    condition = alltrue([
+      for r in values(aws_vpc_security_group_ingress_rule.ssh) : alltrue([
+        r.tags["Environment"] == var.environment,
+        r.tags["ProvisionedBy"] == "terraform",
+        r.tags["Module"] == "terraform-aws-bastion-server",
+        r.tags["ModuleVersion"] == "local",
+      ])
+    ])
+    error_message = "Ingress rule resources must apply Synapse standard tags"
+  }
+
+  assert {
+    condition = alltrue([
+      aws_vpc_security_group_egress_rule.all.tags["Environment"] == var.environment,
+      aws_vpc_security_group_egress_rule.all.tags["ProvisionedBy"] == "terraform",
+      aws_vpc_security_group_egress_rule.all.tags["Module"] == "terraform-aws-bastion-server",
+      aws_vpc_security_group_egress_rule.all.tags["ModuleVersion"] == "local",
+    ])
+    error_message = "Egress rule resource must apply Synapse standard tags"
   }
 }
