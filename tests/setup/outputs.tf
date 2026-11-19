@@ -1,9 +1,11 @@
 output "vpc_id" {
-  value = module.vpc.vpc_id
+  description = "ID of the test VPC the bastion under test runs in."
+  value       = module.vpc.vpc_id
 }
 
 output "public_subnet_id" {
-  value = module.vpc.public_subnets[0]
+  description = "ID of the public subnet the bastion under test launches into."
+  value       = module.vpc.public_subnets[0]
 }
 
 output "runner_ingress_cidr" {
