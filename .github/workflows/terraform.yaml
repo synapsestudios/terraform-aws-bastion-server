@@ -11,6 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install lintofu
+        run: npm ci
+      - name: lintofu
+        run: npm run lint
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.13.4
